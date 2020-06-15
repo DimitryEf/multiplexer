@@ -32,9 +32,7 @@ import (
 	"github.com/DimitryEf/multiplexer/router"
 )
 
-//TODO документация
-//TODO указать какой пункт выполнен какими строчками кода
-//TODO Dockerfile
+//TODO Unit tests
 //TODO integration tests
 
 func main() {
