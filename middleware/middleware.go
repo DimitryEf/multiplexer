@@ -1,9 +1,12 @@
 package middleware
 
-import "net/http"
+import (
+	"github.com/DimitryEf/multiplexer/config"
+	"net/http"
+)
 
 // LogMiddleware для логирования всех входящих запросов
-func LogMiddleware(m *MultiplexerConfig) func(next http.Handler) http.Handler {
+func LogMiddleware(m *config.MultiplexerConfig) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			m.Log.Infof("ip=%s, method=%s, route=%s", r.RemoteAddr, r.Method, r.RequestURI)

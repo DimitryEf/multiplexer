@@ -27,6 +27,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/DimitryEf/multiplexer/config"
+	"github.com/DimitryEf/multiplexer/router"
 )
 
 //TODO документация
@@ -34,27 +37,12 @@ import (
 //TODO Dockerfile
 //TODO integration tests
 
-// MultiplexerConfig - структура с настройками мультиплексора
-type MultiplexerConfig struct {
-	Log                          *logrus.Logger // Логгер
-	Host                         string         // Хост
-	Port                         string         // Порт, например ":8080"
-	MaxUrls                      int            // Максимальное количество url в теле входящего запроса
-	MaxInputConn                 int            // Максимальное количество одновременно входящих соединений
-	MaxOutputConnForOneInputConn int            // Допустимое количество исходящих подключений на каждое входящее
-	UrlRequestTimeout            time.Duration  // Таймаут на запрос одного url
-	ShutdownTimeout              time.Duration  // Таймаут принудительной остановки сервера
-	ReadTimeout                  time.Duration  // Таймаут для чтения запроса
-	WriteTimeout                 time.Duration  // Таймаут для записи ответа
-	MaxHeaderBytes               int            // Максимальный размер заголовков запроса
-}
-
 func main() {
 	// В качестве логгера используется logrus
 	log := logrus.New()
 	log.SetOutput(os.Stdout) //Устанавливаем вывод логов в stdout
 
-	m := &MultiplexerConfig{
+	m := &config.MultiplexerConfig{
 		Log:                          log,
 		Host:                         "",
 		Port:                         ":8080",
@@ -77,7 +65,7 @@ func main() {
 	m.Log.Infof("Port is %v", m.Port)
 
 	// Инициализируем роутер. Используется роутер из библиотеки gorilla/mux
-	router := Router(m)
+	router := router.Router(m)
 
 	// Инициализируем сервер. Используется сервер из стандартной библиотеки
 	server := &http.Server{
@@ -112,7 +100,7 @@ func main() {
 }
 
 // RunMultiplexer запускает сервер с мультиплексором указанной конфигурации
-func RunMultiplexer(server *http.Server, m *MultiplexerConfig) {
+func RunMultiplexer(server *http.Server, m *config.MultiplexerConfig) {
 	m.Log.Info("Server is running...")
 
 	// Инициализируем слушателя для протокола tcp на указанном порту

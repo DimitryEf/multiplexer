@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"github.com/DimitryEf/multiplexer/config"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -21,7 +22,7 @@ type Resp struct {
 
 // Multiplex осуществляет запросы к сторонним серверам, согласно списку переданному от клиента
 // и возвращает клиенту json с массивом ответов
-func Multiplex(m *MultiplexerConfig) http.HandlerFunc {
+func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Получаем тело запроса
 		b, err := ioutil.ReadAll(r.Body)

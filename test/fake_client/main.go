@@ -14,8 +14,9 @@ import (
 
 func main() {
 	//bodyStr := `["http://localhost:8081/1", "http://localhost:8081/2", "http://localhost:8081/3", "http://localhost:8081/4", "http://localhost:8081/5", "http://localhost:8081/6", "http://localhost:8081/7", "http://localhost:8081/8", "http://localhost:8081/9", "http://localhost:8081/10", "http://localhost:8081/11", "http://localhost:8081/12", "http://localhost:8081/13", "http://localhost:8081/14", "http://localhost:8081/15", "http://localhost:8081/16", "http://localhost:8081/17", "http://localhost:8081/18", "http://localhost:8081/19", "http://localhost:8081/20", "http://localhost:8081/21"]`
-	bodyStr := `["http://localhost:8081/1", "http://localhost:8081/2", "http://localhost:8081/3", "http://localhost:8081/4", "http://localhost:8081/5", "http://localhost:8081/6", "http://localhost:8081/7", "http://localhost:8081/8", "http://localhost:8081/9", "http://localhost:8081/10", "http://localhost:8081/11", "http://localhost:8081/12", "http://localhost:8081/13", "http://localhost:8081/14", "http://localhost:8081/15", "http://localhost:8081/16", "http://localhost:8081/17", "http://localhost:8081/18", "http://localhost:8081/19", "http://localhost:8081/20"]`
+	//bodyStr := `["http://localhost:8081/1", "http://localhost:8081/2", "http://localhost:8081/3", "http://localhost:8081/4", "http://localhost:8081/5", "http://localhost:8081/6", "http://localhost:8081/7", "http://localhost:8081/8", "http://localhost:8081/9", "http://localhost:8081/10", "http://localhost:8081/11", "http://localhost:8081/12", "http://localhost:8081/13", "http://localhost:8081/14", "http://localhost:8081/15", "http://localhost:8081/16", "http://localhost:8081/17", "http://localhost:8081/18", "http://localhost:8081/19", "http://localhost:8081/20"]`
 	//bodyStr := `["http://localhost:8081/1", "http://localhost:8081/2", "http://localhost:8081/3"]`
+	bodyStr := `["https://ya.ru"]`
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
