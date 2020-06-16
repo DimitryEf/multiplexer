@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 func get(w http.ResponseWriter, r *http.Request) {
