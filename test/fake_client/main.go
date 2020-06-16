@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -37,7 +38,8 @@ func main() {
 			fmt.Println(time.Now())
 
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("got error: %s", err.Error())
+				os.Exit(1)
 			}
 
 			body, err := ioutil.ReadAll(resp.Body)
