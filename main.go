@@ -19,14 +19,15 @@ package main
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/netutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/netutil"
 
 	"github.com/DimitryEf/multiplexer/config"
 	"github.com/DimitryEf/multiplexer/router"
