@@ -3,10 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"github.com/DimitryEf/multiplexer/config"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/DimitryEf/multiplexer/config"
 )
 
 // Структура, соответствующая телу запроса от клиента. Например:

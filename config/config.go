@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/sirupsen/logrus"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // MultiplexerConfig - структура с настройками мультиплексора
