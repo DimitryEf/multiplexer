@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/DimitryEf/multiplexer/config"
@@ -51,6 +52,22 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 			return
 		}
 
+		// проверяем валидность url
+		for i := range urls {
+			parsed, err := url.Parse(urls[i])
+			if err != nil {
+				m.Log.Errorf("invalid url: %q", urls[i])
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			if parsed.Scheme == "" && parsed.Host == "" {
+				m.Log.Errorf("invalid url: %q", urls[i])
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+
 		// Создаем канал для отслеживания отмены запроса от клиента или из-за ошибки
 		cancelChan := make(chan struct{}, urlsLen)
 
@@ -71,7 +88,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		outputConnChan := make(chan struct{}, m.MaxOutputConnForOneInputConn)
 
 		// Запускаем для каждого url отдельную горутину
-		for _, url := range urls {
+		for _, u := range urls {
 			go func(url string) {
 				// Делаем запрос по url
 				body, err := MakeRequest(m.UrlRequestTimeout, url, &cancelChan, &outputConnChan)
@@ -82,7 +99,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 				}
 				// Ответ записываем в канал
 				respChan <- Resp{url, body}
-			}(url)
+			}(u)
 		}
 
 		var result []Resp // Переменная для записи результата с ответами со сторонних серверов
