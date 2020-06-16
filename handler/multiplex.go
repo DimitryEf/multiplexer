@@ -91,7 +91,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		for _, u := range urls {
 			go func(url string) {
 				// Делаем запрос по url
-				body, err := MakeRequest(m.UrlRequestTimeout, url, cancelChan, outputConnChan)
+				body, err := DoRequest(m.UrlRequestTimeout, url, cancelChan, outputConnChan)
 				if err != nil {
 					// Ошибку пишем в канал
 					errorChan <- err
@@ -151,8 +151,8 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 	}
 }
 
-// MakeRequest делает запрос по переданному url
-func MakeRequest(urlRequestTimeout time.Duration, url string, cancelChan, outputConnChan chan struct{}) (string, error) {
+// DoRequest делает запрос по переданному url
+func DoRequest(urlRequestTimeout time.Duration, url string, cancelChan, outputConnChan chan struct{}) (string, error) {
 	// Блокируем выполнение, если превышен лимит исходящих подключений.
 	// Конфигурируется в поле MaxOutputConnForOneInputConn у структуры MultiplexerConfig.
 	outputConnChan <- struct{}{}
