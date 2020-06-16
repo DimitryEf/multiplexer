@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/DimitryEf/multiplexer/config"
 )
@@ -68,17 +67,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 			}
 		}
 
-		// Создаем канал для отслеживания отмены запроса от клиента или из-за ошибки
-		cancelChan := make(chan struct{}, urlsLen)
-
-		// Запускаем в отдельной горутине отслеживание отмены
-		go func() {
-			<-r.Context().Done()
-			// Всем запросам сигнализируем об отмене
-			for i := 0; i < urlsLen; i++ {
-				cancelChan <- struct{}{}
-			}
-		}()
+		mainCtx := r.Context()
 
 		// Создаем канал для сбора ответов по url со сторонних серверов
 		respChan := make(chan Resp, urlsLen)
@@ -88,12 +77,20 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		outputRequestLimit := make(chan struct{}, m.MaxOutputConnForOneInputConn)
 
 		// Запускаем для каждого url отдельную горутину
+		cancelableCtx, cancelRequests := context.WithCancel(mainCtx)
+		defer cancelRequests()
+
 		for _, u := range urls {
 			go func(url string) {
 				// Делаем запрос по url
 				outputRequestLimit <- struct{}{}
-				body, err := DoRequest(m.UrlRequestTimeout, url, cancelChan)
-				<-outputRequestLimit
+				ctxTimeout, cancelTimeout := context.WithTimeout(cancelableCtx, m.UrlRequestTimeout)
+				defer func() {
+					cancelTimeout()
+					<-outputRequestLimit
+				}()
+
+				body, err := DoRequest(ctxTimeout, url)
 				if err != nil {
 					// Ошибку пишем в канал
 					errorChan <- err
@@ -107,21 +104,23 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		var result []Resp // Переменная для записи результата с ответами со сторонних серверов
 
 		// В бесконечном цикле используем select по каналам
-	LOOP:
-		for {
+		run := true
+		for run {
 			select {
+			case <-mainCtx.Done():
+				// получен сигнал от родительского контекста
+				cancelRequests()
+				return
 			case res := <-respChan:
 				// Если получен ответ, то записываем его в слайс result
 				result = append(result, res)
 				// Если получены результаты по всем url, ты выходим из цикла
 				if len(result) >= urlsLen {
-					break LOOP
+					run = false
+					break
 				}
 			case err := <-errorChan:
-				// Если получена ошибка, то пишем в cancelChan для завершения остальных исходящих запросов
-				for i := 0; i < urlsLen; i++ {
-					cancelChan <- struct{}{}
-				}
+				cancelRequests()
 				w.WriteHeader(http.StatusInternalServerError)
 				// Ошибку возвращаем клиенту
 				_, errW := w.Write([]byte(err.Error()))
@@ -154,23 +153,12 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 }
 
 // DoRequest делает запрос по переданному url
-func DoRequest(urlRequestTimeout time.Duration, url string, cancelChan chan struct{}) (string, error) {
+func DoRequest(ctx context.Context, url string) (string, error) {
 	// Формируем новый запрос по url
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
-
-	// Создаем контекст с таймаутом и функцией отмены
-	ctx, cancel := context.WithTimeout(req.Context(), urlRequestTimeout)
-	req = req.WithContext(ctx)
-
-	// Запускаем горутину, в которой будем отслеживать отмену
-	go func() {
-		<-cancelChan
-		cancel()
-	}()
-	defer cancel()
 
 	// Делаем запрос по url
 	resp, err := http.DefaultClient.Do(req)
