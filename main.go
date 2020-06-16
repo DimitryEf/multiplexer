@@ -86,8 +86,8 @@ func main() {
 	//Устанавливаем контекст с таймаутом для принудительного завершения работы сервера
 	timeout, cancelFunc := context.WithTimeout(context.Background(), m.ShutdownTimeout)
 	defer cancelFunc()
-	err := server.Shutdown(timeout) // Функция Shutdown стандартного пакета http обеспечивает graceful shutdown
-	if err != nil {
+
+	if err := server.Shutdown(timeout); err != nil && err != http.ErrServerClosed { // Функция Shutdown стандартного пакета http обеспечивает graceful shutdown
 		log.Fatal(err)
 	}
 
