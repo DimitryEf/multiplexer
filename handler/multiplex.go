@@ -85,13 +85,15 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		// Создаем канал для приема ошибки
 		errorChan := make(chan error, 1)
 		// Создаем канал для контроля количества исходящих подключений
-		outputConnChan := make(chan struct{}, m.MaxOutputConnForOneInputConn)
+		outputRequestLimit := make(chan struct{}, m.MaxOutputConnForOneInputConn)
 
 		// Запускаем для каждого url отдельную горутину
 		for _, u := range urls {
 			go func(url string) {
 				// Делаем запрос по url
-				body, err := DoRequest(m.UrlRequestTimeout, url, cancelChan, outputConnChan)
+				outputRequestLimit <- struct{}{}
+				body, err := DoRequest(m.UrlRequestTimeout, url, cancelChan)
+				<-outputRequestLimit
 				if err != nil {
 					// Ошибку пишем в канал
 					errorChan <- err
@@ -152,12 +154,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 }
 
 // DoRequest делает запрос по переданному url
-func DoRequest(urlRequestTimeout time.Duration, url string, cancelChan, outputConnChan chan struct{}) (string, error) {
-	// Блокируем выполнение, если превышен лимит исходящих подключений.
-	// Конфигурируется в поле MaxOutputConnForOneInputConn у структуры MultiplexerConfig.
-	outputConnChan <- struct{}{}
-	defer func() { <-outputConnChan }()
-
+func DoRequest(urlRequestTimeout time.Duration, url string, cancelChan chan struct{}) (string, error) {
 	// Формируем новый запрос по url
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
