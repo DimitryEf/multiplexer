@@ -80,7 +80,12 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 		cancelableCtx, cancelRequests := context.WithCancel(mainCtx)
 		defer cancelRequests()
 
+		gotError := false
 		for _, u := range urls {
+			if gotError {
+				break
+			}
+
 			go func(url string) {
 				// Делаем запрос по url
 				outputRequestLimit <- struct{}{}
@@ -92,6 +97,7 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 
 				body, err := DoRequest(ctxTimeout, url)
 				if err != nil {
+					gotError = true
 					// Ошибку пишем в канал
 					errorChan <- err
 					return
