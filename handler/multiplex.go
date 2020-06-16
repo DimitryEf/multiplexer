@@ -175,11 +175,8 @@ func DoRequest(urlRequestTimeout time.Duration, url string, cancelChan, outputCo
 	}()
 	defer cancel()
 
-	// Инициализируем клиента для запроса
-	client := &http.Client{}
-
 	// Делаем запрос по url
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
