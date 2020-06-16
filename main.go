@@ -63,16 +63,13 @@ func main() {
 	}
 	m.Log.Infof("Port is %v", m.Port)
 
-	// Инициализируем роутер. Используется роутер из библиотеки gorilla/mux
-	router := router.Router(m)
-
 	// Инициализируем сервер. Используется сервер из стандартной библиотеки
 	server := &http.Server{
 		Addr:           net.JoinHostPort(m.Host, m.Port),
 		ReadTimeout:    m.ReadTimeout,
 		WriteTimeout:   m.WriteTimeout,
 		MaxHeaderBytes: m.MaxHeaderBytes,
-		Handler:        router,
+		Handler:        router.Router(m),
 	}
 
 	// Запускаем сервер мультиплексора в горутине
