@@ -1,8 +1,9 @@
 package middleware
 
 import (
-	"github.com/DimitryEf/multiplexer/config"
 	"net/http"
+
+	"github.com/DimitryEf/multiplexer/config"
 )
 
 // LogMiddleware для логирования всех входящих запросов

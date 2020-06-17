@@ -3,10 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"github.com/DimitryEf/multiplexer/config"
 	"io/ioutil"
 	"net/http"
-	"time"
+	"net/url"
+
+	"github.com/DimitryEf/multiplexer/config"
 )
 
 // Структура, соответствующая телу запроса от клиента. Например:
@@ -50,58 +51,82 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 			return
 		}
 
-		// Создаем канал для отслеживания отмены запроса от клиента или из-за ошибки
-		cancelChan := make(chan struct{}, urlsLen)
-
-		// Запускаем в отдельной горутине отслеживание отмены
-		go func() {
-			<-r.Context().Done()
-			// Всем запросам сигнализируем об отмене
-			for i := 0; i < urlsLen; i++ {
-				cancelChan <- struct{}{}
+		// проверяем валидность url
+		for i := range urls {
+			parsed, err := url.Parse(urls[i])
+			if err != nil {
+				m.Log.Errorf("invalid url: %q", urls[i])
+				w.WriteHeader(http.StatusBadRequest)
+				return
 			}
-		}()
+
+			if parsed.Scheme == "" && parsed.Host == "" {
+				m.Log.Errorf("invalid url: %q", urls[i])
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+
+		mainCtx := r.Context()
 
 		// Создаем канал для сбора ответов по url со сторонних серверов
 		respChan := make(chan Resp, urlsLen)
 		// Создаем канал для приема ошибки
 		errorChan := make(chan error, 1)
 		// Создаем канал для контроля количества исходящих подключений
-		outputConnChan := make(chan struct{}, m.MaxOutputConnForOneInputConn)
+		outputRequestLimit := make(chan struct{}, m.MaxOutputConnForOneInputConn)
 
 		// Запускаем для каждого url отдельную горутину
-		for _, url := range urls {
+		cancelableCtx, cancelRequests := context.WithCancel(mainCtx)
+		defer cancelRequests()
+
+		gotError := false
+		for _, u := range urls {
+			if gotError {
+				break
+			}
+
 			go func(url string) {
 				// Делаем запрос по url
-				body, err := MakeRequest(m.UrlRequestTimeout, url, &cancelChan, &outputConnChan)
+				outputRequestLimit <- struct{}{}
+				ctxTimeout, cancelTimeout := context.WithTimeout(cancelableCtx, m.UrlRequestTimeout)
+				defer func() {
+					cancelTimeout()
+					<-outputRequestLimit
+				}()
+
+				body, err := DoRequest(ctxTimeout, url)
 				if err != nil {
+					gotError = true
 					// Ошибку пишем в канал
 					errorChan <- err
 					return
 				}
 				// Ответ записываем в канал
 				respChan <- Resp{url, body}
-			}(url)
+			}(u)
 		}
 
 		var result []Resp // Переменная для записи результата с ответами со сторонних серверов
 
 		// В бесконечном цикле используем select по каналам
-	LOOP:
-		for {
+		run := true
+		for run {
 			select {
+			case <-mainCtx.Done():
+				// получен сигнал от родительского контекста
+				cancelRequests()
+				return
 			case res := <-respChan:
 				// Если получен ответ, то записываем его в слайс result
 				result = append(result, res)
 				// Если получены результаты по всем url, ты выходим из цикла
 				if len(result) >= urlsLen {
-					break LOOP
+					run = false
+					break
 				}
 			case err := <-errorChan:
-				// Если получена ошибка, то пишем в cancelChan для завершения остальных исходящих запросов
-				for i := 0; i < urlsLen; i++ {
-					cancelChan <- struct{}{}
-				}
+				cancelRequests()
 				w.WriteHeader(http.StatusInternalServerError)
 				// Ошибку возвращаем клиенту
 				_, errW := w.Write([]byte(err.Error()))
@@ -133,35 +158,16 @@ func Multiplex(m *config.MultiplexerConfig) http.HandlerFunc {
 	}
 }
 
-// MakeRequest делает запрос по переданному url
-func MakeRequest(urlRequestTimeout time.Duration, url string, cancelChan, outputConnChan *chan struct{}) (string, error) {
-	// Блокируем выполнение, если превышен лимит исходящих подключений.
-	// Конфигурируется в поле MaxOutputConnForOneInputConn у структуры MultiplexerConfig.
-	*outputConnChan <- struct{}{}
-	defer func() { <-*outputConnChan }()
-
+// DoRequest делает запрос по переданному url
+func DoRequest(ctx context.Context, url string) (string, error) {
 	// Формируем новый запрос по url
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	// Создаем контекст с таймаутом и функцией отмены
-	ctx, cancel := context.WithTimeout(req.Context(), urlRequestTimeout)
-	req = req.WithContext(ctx)
-
-	// Запускаем горутину, в которой будем отслеживать отмену
-	go func() {
-		<-*cancelChan
-		cancel()
-	}()
-	defer cancel()
-
-	// Инициализируем клиента для запроса
-	client := &http.Client{}
-
 	// Делаем запрос по url
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}

@@ -1,11 +1,13 @@
 package router
 
 import (
+	"net/http"
+
+	"github.com/gorilla/mux"
+
 	"github.com/DimitryEf/multiplexer/config"
 	"github.com/DimitryEf/multiplexer/handler"
 	"github.com/DimitryEf/multiplexer/middleware"
-	"github.com/gorilla/mux"
-	"net/http"
 )
 
 func Router(m *config.MultiplexerConfig) *mux.Router {

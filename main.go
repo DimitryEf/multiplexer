@@ -19,14 +19,15 @@ package main
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/netutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/netutil"
 
 	"github.com/DimitryEf/multiplexer/config"
 	"github.com/DimitryEf/multiplexer/router"
@@ -62,16 +63,13 @@ func main() {
 	}
 	m.Log.Infof("Port is %v", m.Port)
 
-	// Инициализируем роутер. Используется роутер из библиотеки gorilla/mux
-	router := router.Router(m)
-
 	// Инициализируем сервер. Используется сервер из стандартной библиотеки
 	server := &http.Server{
 		Addr:           net.JoinHostPort(m.Host, m.Port),
 		ReadTimeout:    m.ReadTimeout,
 		WriteTimeout:   m.WriteTimeout,
 		MaxHeaderBytes: m.MaxHeaderBytes,
-		Handler:        router,
+		Handler:        router.Router(m),
 	}
 
 	// Запускаем сервер мультиплексора в горутине
@@ -88,8 +86,8 @@ func main() {
 	//Устанавливаем контекст с таймаутом для принудительного завершения работы сервера
 	timeout, cancelFunc := context.WithTimeout(context.Background(), m.ShutdownTimeout)
 	defer cancelFunc()
-	err := server.Shutdown(timeout) // Функция Shutdown стандартного пакета http обеспечивает graceful shutdown
-	if err != nil {
+
+	if err := server.Shutdown(timeout); err != nil && err != http.ErrServerClosed { // Функция Shutdown стандартного пакета http обеспечивает graceful shutdown
 		log.Fatal(err)
 	}
 
