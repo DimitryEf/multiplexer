@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -19,4 +20,22 @@ type MultiplexerConfig struct {
 	ReadTimeout                  time.Duration  // Таймаут для чтения запроса
 	WriteTimeout                 time.Duration  // Таймаут для записи ответа
 	MaxHeaderBytes               int            // Максимальный размер заголовков запроса
+}
+
+func NewMultiplexerConfig(logger *logrus.Logger) *MultiplexerConfig {
+	logger.SetOutput(os.Stdout) //Устанавливаем вывод логов в stdout
+
+	return &MultiplexerConfig{
+		Log:                          logger,
+		Host:                         "",
+		Port:                         ":8080",
+		MaxUrls:                      20,
+		MaxInputConn:                 100,
+		MaxOutputConnForOneInputConn: 4,
+		UrlRequestTimeout:            1 * time.Second,
+		ShutdownTimeout:              10 * time.Second,
+		ReadTimeout:                  10 * time.Second,
+		WriteTimeout:                 10 * time.Second,
+		MaxHeaderBytes:               1 << 20,
+	}
 }

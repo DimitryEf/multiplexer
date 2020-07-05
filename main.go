@@ -18,19 +18,10 @@
 package main
 
 import (
-	"context"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/netutil"
-
 	"github.com/DimitryEf/multiplexer/config"
 	"github.com/DimitryEf/multiplexer/router"
+	"github.com/DimitryEf/multiplexer/server"
+	"github.com/sirupsen/logrus"
 )
 
 //TODO Unit tests
@@ -38,83 +29,20 @@ import (
 
 func main() {
 	// В качестве логгера используется logrus
-	log := logrus.New()
-	log.SetOutput(os.Stdout) //Устанавливаем вывод логов в stdout
+	logger := logrus.New()
 
-	m := &config.MultiplexerConfig{
-		Log:                          log,
-		Host:                         "",
-		Port:                         ":8080",
-		MaxUrls:                      20,
-		MaxInputConn:                 100,
-		MaxOutputConnForOneInputConn: 4,
-		UrlRequestTimeout:            1 * time.Second,
-		ShutdownTimeout:              10 * time.Second,
-		ReadTimeout:                  10 * time.Second,
-		WriteTimeout:                 10 * time.Second,
-		MaxHeaderBytes:               1 << 20,
-	}
+	// Структура с настройками мультиплексора
+	cfg := config.NewMultiplexerConfig(logger)
 
-	m.Log.Info("Starting the app...")
-
-	// Проверяем установку порта
-	if len(m.Port) == 0 {
-		m.Log.Fatal("Port is not set")
-	}
-	m.Log.Infof("Port is %v", m.Port)
+	// Роутер с handleFunc и Middleware
+	r := router.NewRouter(cfg)
 
 	// Инициализируем сервер. Используется сервер из стандартной библиотеки
-	server := &http.Server{
-		Addr:           net.JoinHostPort(m.Host, m.Port),
-		ReadTimeout:    m.ReadTimeout,
-		WriteTimeout:   m.WriteTimeout,
-		MaxHeaderBytes: m.MaxHeaderBytes,
-		Handler:        router.Router(m),
-	}
+	srv := server.NewMultiplexerServer(cfg, r)
 
 	// Запускаем сервер мультиплексора в горутине
-	go RunMultiplexer(server, m)
+	go srv.Run()
 
-	// Создаем канал для приема сигналов ОС
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM) // Отлавливаем в канал interrupt сигналы os.Interrupt и syscall.SIGTERM
-
-	<-interrupt // Здесь исполнение кода блокируется, пока не не будет получен сигнал ОС
-
-	m.Log.Info("Stopping server...")
-
-	//Устанавливаем контекст с таймаутом для принудительного завершения работы сервера
-	timeout, cancelFunc := context.WithTimeout(context.Background(), m.ShutdownTimeout)
-	defer cancelFunc()
-
-	if err := server.Shutdown(timeout); err != nil && err != http.ErrServerClosed { // Функция Shutdown стандартного пакета http обеспечивает graceful shutdown
-		log.Fatal(err)
-	}
-
-	log.Info("The server stopped.")
-	os.Exit(0)
-}
-
-// RunMultiplexer запускает сервер с мультиплексором указанной конфигурации
-func RunMultiplexer(server *http.Server, m *config.MultiplexerConfig) {
-	m.Log.Info("Server is running...")
-
-	// Инициализируем слушателя для протокола tcp на указанном порту
-	l, err := net.Listen("tcp", m.Port)
-	if err != nil {
-		m.Log.Fatalf("error in net.Listen: %v", err)
-	}
-
-	defer func() {
-		err := l.Close()
-		if err != nil {
-			m.Log.Errorf("error in close net.Listen: %v", err)
-		}
-	}()
-
-	// Используем LimitListener для ограничения количества входящих соединений
-	l = netutil.LimitListener(l, m.MaxInputConn)
-
-	// Запускаем сервер
-	m.Log.Fatal(server.Serve(l))
+	// Блокируемся на ожидании сигнала от ОС
+	srv.WaitSignalOS()
 }

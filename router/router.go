@@ -10,7 +10,7 @@ import (
 	"github.com/DimitryEf/multiplexer/middleware"
 )
 
-func Router(m *config.MultiplexerConfig) *mux.Router {
+func NewRouter(m *config.MultiplexerConfig) *mux.Router {
 	r := mux.NewRouter()
 
 	// Устанавливаем единственную хэндлер-функцию
